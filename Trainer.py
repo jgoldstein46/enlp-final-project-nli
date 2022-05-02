@@ -18,40 +18,43 @@ PAD = '[PAD]'
 
 class NLI_Trainer:
     def __init__(self, params):
+        print("Creating the trainer")
         self.params = params
         
         # train file will be used for dev and testing after it is split
         self.train_file = params['train']
-        df = DataFrame(pd.read_csv(self.train_file, header=True))
+        df = DataFrame(pd.read_csv(self.train_file))
         # start out with only english 
         english_df = df.english_df
         ########################
         # Train test split     #
         ########################
+        # print(english_df.head())
         # first split up between train and dev/test 
-        self.train_data, self.train_labels, dev_data, dev_labels = train_test_split(english_df['id', 'premise', 'hypothesis', 'lang_abv', 'language'], 
-        english_df['label'], test_size=0.3, random_state=self.params['seed'])
+        self.train_data, dev_data, self.train_labels, dev_labels = train_test_split(english_df[['id', 'premise', 'hypothesis', 'lang_abv', 'language']], 
+        english_df[['label']], test_size=0.3, random_state=self.params['seed'])
         # then reserve two thirds of the dev/test data for testing (20% of the total data)
-        self.dev_data, self.dev_labels, self.test_data, self.test_labels = train_test_split(dev_data, 
+        # print(dev_data.shape, dev_labels.shape)
+        self.dev_data, self.test_data, self.dev_labels, self.test_labels = train_test_split(dev_data, 
         dev_labels, test_size=0.67, random_state=self.params['seed'])
-
+        
+        classifier = self.params['nli_classifier_class'] 
+        self.baseline = classifier == NLI_Baseline
+        self.use_bert = classifier == BERT_NLI_Classifier
         
         # create the vocab using tokenizer if necessary 
         self.vocab = self.create_vocab(self.train_data)
-
         self.params['classifier_params']['vocab'] = self.vocab
-        classifier = self.params['nli_classifier_class'] 
-        self.baseline = classifier == NLI_Baseline
+        
         self.nli_classifier = classifier(self.params['classifier_params'])
-
-        self.use_bert = classifier == BERT_NLI_Classifier
+        
         if self.use_bert:
             self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 
     def batch_generator_nli(self, data_df, labels_df, batch_size=1):
         hypothesis_a = self.preprocess_sentences(data_df['hypothesis'].tolist())
         premise_a = self.preprocess_sentences(data_df['premise'].tolist())
-        label_a = labels_df.tolist()
+        label_a = labels_df['label'].tolist()
 
         while True:
             batch_x = []
@@ -64,7 +67,9 @@ class NLI_Trainer:
                 else:
                     # other methods will have sentenfes separated by START and END tokens 
                     seq = self.vectorize_sequence(premise) + self.vectorize_sequence(hypothesis)
-
+                # print(seq, self.unvectorize_sequence(seq))
+                # print(premise, hypothesis, self.one_hot_encode_label(label))
+                
                 batch_x.append(seq)
                 batch_y.append(self.one_hot_encode_label(label))
                 
@@ -125,6 +130,10 @@ class NLI_Trainer:
         seq = [tok if tok in self.vocab else UNK for tok in seq]
         return [self.vocab[tok] for tok in seq]
     
+    def unvectorize_sequence(self, seq): 
+        translate = sorted(self.vocab.keys(),key=lambda k:self.vocab[k])
+        return [translate[i] for i in seq]
+    
     def one_hot_encode_label(self, label):
         vec = [1.0 if l==label else 0.0 for l in range(3)]
         return vec
@@ -137,21 +146,21 @@ class NLI_Trainer:
             return
         # must complie the model 
         # TODO should the optimizer be passed in as a command line argument? 
-        optimizer = tf.optimizers.Adadelta(clipvalue=0.5)
-        self.nli_classifier.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
+        # optimizer = tf.optimizers.Adadelta(clipvalue=0.5)
+        # self.nli_classifier.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
 
         for i in range(self.params['epochs']):
             print(f'Epoch {i+1} / {self.params["epochs"]}')
             # Training
-            self.classifer.fit(self.batch_generator_nli(self.train_data, self.train_labels, self.params['batch_size']), epochs=1, 
+            self.nli_classifier.classifier.fit(self.batch_generator_nli(self.train_data, self.train_labels, self.params['batch_size']), epochs=1, 
             steps_per_epoch=self.train_data.shape[0]/self.params['batch_size'])
 
             #Evaluation
-            loss, acc = self.classifier.evaluate(self.batch_generator_nli(self.dev_data, self.dev_labels),
+            loss, acc = self.nli_classifier.classifier.evaluate(self.batch_generator_nli(self.dev_data, self.dev_labels),
             steps=self.dev_data.shape[0])
             print('Dev Loss:', loss, 'Dev Acc:', acc)
         # If using test set (after finding your best model only)
-        test_loss, test_acc = self.classifier.evaluate(self.batch_generator_nli(self.test_data, self.test_labels), 
+        test_loss, test_acc = self.nli_classifier.classifier.evaluate(self.batch_generator_nli(self.test_data, self.test_labels), 
         steps=self.test_data.shape[0])
         print('Test Loss:', test_loss, 'Test Acc:', test_acc)
     

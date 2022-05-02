@@ -8,14 +8,14 @@ import spacy
 from math import sqrt, pow, exp
 from textblob import TextBlob
 from sentence_transformers import SentenceTransformer, util
-from Classifier import NLI_Classifier_Base
+from classifiers.Classifier import NLI_Classifier_Base
 from DataFrame import DataFrame
 
 class NLI_Baseline(NLI_Classifier_Base):
     def __init__(self, params):
         self.params = params
         self.train_file = params['train']
-        df = DataFrame(pd.read_csv(self.train_file, header=True))
+        df = DataFrame(pd.read_csv(self.train_file))
         # start out with only english 
         data = df.english_df
         
@@ -53,10 +53,9 @@ class NLI_Baseline(NLI_Classifier_Base):
     
     def jaccard_similarity(self, x, y):
         ''' returns the jaccard similarity between two lists of sentences'''
-
-      intersection_cardinality = len(set.intersection(*[set(x), set(y)]))
-      union_cardinality = len(set.union(*[set(x), set(y)]))
-      return intersection_cardinality/float(union_cardinality)
+        intersection_cardinality = len(set.intersection(*[set(x), set(y)]))
+        union_cardinality = len(set.union(*[set(x), set(y)]))
+        return intersection_cardinality/float(union_cardinality)
 
     def bert_cos_sim (self, p,h):
         '''Take 2 lists of string, return a list of cosine similarity between two lists using SentenceTransformer'''

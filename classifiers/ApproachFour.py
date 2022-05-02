@@ -1,4 +1,4 @@
-from Classifier import NLI_Classifier_Base
+from classifiers.Classifier import NLI_Classifier_Base
 import numpy as np
 
 class GRU_NLI_Classifier(NLI_Classifier_Base):

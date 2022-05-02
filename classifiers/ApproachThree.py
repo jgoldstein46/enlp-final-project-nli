@@ -1,13 +1,42 @@
-from Classifier import NLI_Classifier_Base
+from classifiers.Classifier import NLI_Classifier_Base
 import numpy as np
+from keras.models import Sequential
+from keras.layers import Embedding, Bidirectional, LSTM, Dense, TimeDistributed, Dropout
+
+import numpy as np
+# from keras import backend as K
+# from tensorflow.keras import Model
+import tensorflow as tf
+import os
 
 class LSTM_NLI_Classifier(NLI_Classifier_Base):
     def __init__(self, params):
-        pass
+        hidden_size = params["hidden_size"]
+        dropout = params["dropout"]
+        self.vocab = params["vocab"]
+        self.embedding_size = params["embedding_size"]
+        self.glove_file = params["glove_file"]
+        self.n_layers = params['n_layers']
+        embedding_matrix = self.load_pretrained_embeddings()
+        embedding_layer = Embedding(len(self.vocab), self.embedding_size, 
+                                    embeddings_initializer=tf.keras.initializers.Constant(embedding_matrix))
+
+        classifier = Sequential()
+        classifier.add(embedding_layer)
+        classifier.add(Dropout(dropout))
+        for _ in range(self.n_layers - 1):
+            classifier.add(Bidirectional(LSTM(hidden_size, return_sequences=True, dropout=dropout)))
+            classifier.add(TimeDistributed(Dense(hidden_size, activation='softmax')))
+        classifier.add(Bidirectional(LSTM(hidden_size, return_sequences=False, dropout=dropout)))
+        classifier.add(Dense(3, activation='softmax'))
+        self.classifier = classifier
+        self.optimizer = tf.optimizers.Adadelta(clipvalue=0.5)
+        self.classifier.compile(optimizer=self.optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
     
     def load_pretrained_embeddings(self):
         # return super().load_pretrained_embeddings()
         embedding_matrix = np.zeros((len(self.vocab), self.embedding_size))
+        # filepath = os.path.join('..', self.glove_file)
         with open(self.glove_file, encoding='utf8') as f:
             for line in f:
                 # Each line will be a word and a list of floats, separated by spaces.
@@ -20,4 +49,9 @@ class LSTM_NLI_Classifier(NLI_Classifier_Base):
                     embedding_matrix[self.vocab[word]] = embeddings
 
         embedding_matrix[self.vocab['[UNK]']] = np.random.randn(self.embedding_size)
+        # print(np.where(~embedding_matrix.any(axis=1))[0].shape, embedding_matrix.shape)
+        # print(embedding_matrix)
         return embedding_matrix
+
+    def call(self, inputs, **kwds):
+        return self.classifier(inputs)
