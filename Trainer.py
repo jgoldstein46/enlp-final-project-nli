@@ -2,7 +2,7 @@ from DataFrame import DataFrame
 # from classifiers.Classifier import NLI_Classifier
 from classifiers.ApproachOne import NLI_Baseline
 from classifiers.ApproachTwo import BERT_NLI_Classifier
-
+from classifiers.ApproachFour import GRU_NLI_Classifier
 from sklearn.model_selection import train_test_split
 from transformers import BertTokenizer
 import numpy as np
