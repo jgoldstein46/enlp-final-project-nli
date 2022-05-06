@@ -41,6 +41,7 @@ class NLI_Trainer:
         classifier = self.params['nli_classifier_class'] 
         self.baseline = classifier == NLI_Baseline
         self.use_bert = classifier == BERT_NLI_Classifier
+        self.gru_model = classifier == GRU_NLI_Classifier
         
         # create the vocab using tokenizer if necessary 
         self.vocab = self.create_vocab(self.train_data)
