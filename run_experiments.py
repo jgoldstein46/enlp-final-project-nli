@@ -3,6 +3,7 @@ from classifiers import *
 from classifiers.ApproachOne import NLI_Baseline
 from classifiers.ApproachThree import LSTM_NLI_Classifier
 from classifiers.ApproachFour import GRU_NLI_Classifier
+from classifiers.ApproachTwo import BERT_NLI_Classifier
 import tensorflow as tf
 import pandas as pd
 
