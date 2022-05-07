@@ -186,21 +186,20 @@ class NLI_Baseline:
         cos_sim=cos_sim.T
         return cos_sim
 
-def main(self.train_file):
-
-    df = DataFrame(pd.read_csv(self.train_file))
-    data = df.english_df
-    baseline=NLI_Baseline()
-    cv_base=baseline.CV_base(data)
-    bleu_m=baseline.bleu(data)
-    eud_m=baseline.euclidean_distance(data)
-    judm=baseline.jaccard_similarity(data)
-    besim=baseline.bert_cos_sim(data)
-    wom=baseline.word_overlap(data)
-    plm=baseline.sent_polarity(data)
-    sbm=baseline.subj(data)
-    w2vm=baseline.w2v_cos_sim(data)
-    fm=np.concatenate((cv_base,bleu_m,eud_m,judm,besim,wom,plm,sbm,w2vm), axis=1)
+    def main(self,train_file):
+        df = DataFrame(pd.read_csv(self.train_file))
+        data = df.english_df
+        baseline=NLI_Baseline()
+        cv_base=baseline.CV_base(data)
+        bleu_m=baseline.bleu(data)
+        eud_m=baseline.euclidean_distance(data)
+        judm=baseline.jaccard_similarity(data)
+        besim=baseline.bert_cos_sim(data)
+        wom=baseline.word_overlap(data)
+        plm=baseline.sent_polarity(data)
+        sbm=baseline.subj(data)
+        w2vm=baseline.w2v_cos_sim(data)
+        fm=np.concatenate((cv_base,bleu_m,eud_m,judm,besim,wom,plm,sbm,w2vm), axis=1)
 
 
 

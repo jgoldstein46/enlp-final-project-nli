@@ -2,8 +2,10 @@ from classifiers.Classifier import NLI_Classifier_Base
 import tensorflow as tf
 from transformers import BertTokenizer, TFBertModel
 
+
 from keras.models import Sequential
 from keras.layers import Embedding, Bidirectional, LSTM, Dense, TimeDistributed, Dropout
+from tensorflow.keras import Model
 
 # TODO implement this class (or import it from huggingface if you like)
 class BERT_NLI_Classifier(NLI_Classifier_Base):
@@ -14,23 +16,24 @@ class BERT_NLI_Classifier(NLI_Classifier_Base):
         self.embedding_size = params["embedding_size"]
         self.n_layers = params['n_layers']
 
-        model = Sequential()
+        classifier = Sequential()
         embedding_layer = BERT_Wrapper(hidden_size)
 
 
-        model.add(embedding_layer)
-        model.add(LSTM(self.hidden_size, return_sequences=False))
+        classifier.add(embedding_layer)
+        classifier.add(LSTM(hidden_size, return_sequences=False))
         
         # output layer
-        model.add(keras.layers.Dense(3, activation='softmax'))
+        classifier.add(Dense(3, activation='softmax'))
         # optimizer
         
-        adam = keras.optimizers.Adam(lr=1e-4)
-        model.compile(optimizer=adam, loss='categorical_crossentropy', metrics=['accuracy'])
+        adam = tf.optimizers.Adadelta(clipvalue=0.5)
+        classifier.compile(optimizer=adam, loss='categorical_crossentropy', metrics=['accuracy'])
+        self.classifier = classifier
         
 
 
-class BERT_Wrapper():
+class BERT_Wrapper(Model):
 
   def __init__(self,hidden_size):
     super(BERT_Wrapper, self).__init__()
