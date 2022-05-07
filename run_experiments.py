@@ -35,7 +35,7 @@ def main():
     params = vars(args)
     # TODO put your classes here to be used
     classifier2class = {'baseline': NLI_Baseline,
-    'bert': None,
+    'bert': BERT_NLI_Classifier,
     'lstm': LSTM_NLI_Classifier,
     'gru': GRU_NLI_Classifier,
     }

@@ -43,6 +43,9 @@ class NLI_Trainer:
         self.use_bert = classifier == BERT_NLI_Classifier
         self.gru_model = classifier == GRU_NLI_Classifier
         
+        if self.use_bert:
+            self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+        
         # create the vocab using tokenizer if necessary 
         self.vocab = self.create_vocab(self.train_data)
         self.params['classifier_params']['vocab'] = self.vocab
