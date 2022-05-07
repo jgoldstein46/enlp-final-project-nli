@@ -11,7 +11,7 @@ from sentence_transformers import SentenceTransformer, util
 from classifiers.Classifier import NLI_Classifier_Base
 from DataFrame import DataFrame
 
-class NLI_Baseline:
+class NLI_Baseline(NLI_Classifier_Base):
     def __init__(self, params):
         self.params = params
         self.train_file = params['train']
@@ -200,6 +200,7 @@ class NLI_Baseline:
         sbm=baseline.subj(data)
         w2vm=baseline.w2v_cos_sim(data)
         fm=np.concatenate((cv_base,bleu_m,eud_m,judm,besim,wom,plm,sbm,w2vm), axis=1)
+        return fm
 
 
 
