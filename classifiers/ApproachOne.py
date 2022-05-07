@@ -7,7 +7,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 import spacy
 from math import sqrt, pow, exp
 from textblob import TextBlob
-#from sentence_transformers import SentenceTransformer, util
+from sentence_transformers import SentenceTransformer, util
 from classifiers.Classifier import NLI_Classifier_Base
 from DataFrame import DataFrame
 
