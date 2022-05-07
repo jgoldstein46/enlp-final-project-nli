@@ -4,7 +4,7 @@ import tensorflow as tf
 import numpy as np
 from tensorflow import keras
 import os
-from keras.layers import Embedding, Bidirectional, LSTM, Dense, TimeDistributed, Dropout
+from keras.layers import Embedding, Bidirectional, GRU, Dense, TimeDistributed, Dropout
 import matplotlib.pyplot as plt
 
 class GRU_NLI_Classifier(NLI_Classifier_Base):
@@ -27,7 +27,7 @@ class GRU_NLI_Classifier(NLI_Classifier_Base):
 
         model = keras.Sequential()
         model.add(embedding_layer)
-        model.add(LSTM(self.hidden_size, return_sequences=False))
+        model.add(GRU(self.hidden_size, return_sequences=False))
         # output layer
         model.add(keras.layers.Dense(3, activation='softmax'))
         # optimizer
