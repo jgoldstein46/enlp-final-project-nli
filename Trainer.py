@@ -8,6 +8,8 @@ from transformers import BertTokenizer
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report
 
 SEP = '[SEP]'
 CLS = '[CLS]'
@@ -170,4 +172,10 @@ class NLI_Trainer:
     
     # TODO implement this method 
     def run_training_loop_approach_one(self):
-        raise NotImplementedError
+        # raise NotImplementedError
+        rf = RandomForestClassifier(n_estimators=200, random_state=0, n_jobs=3)
+        rf.fit(self.train_data, self.train_labels)
+        dev_preds = rf.predict(self.dev_data)
+        test_preds = rf.predict(self.test_data)
+        print('baseline dev result', classification_report(self.dev_labels,dev_preds))
+        print('baseline test result', classification_report(self.test_labels,test_preds))
