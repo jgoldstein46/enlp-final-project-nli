@@ -15,21 +15,43 @@ class NLI_Baseline(NLI_Classifier_Base):
     def __init__(self, params):
         self.params = params
         self.train_file = params['train']
+        self.test_file = params['test']
         df = DataFrame(pd.read_csv(self.train_file))
-        # start out with only english 
-        data = df.english_df
-        
-        
+        # start out with english data
+        self.vectorizer = CountVectorizer(stop_words='english')
+        data = df.english_df #data is a df
+
+
+    def CV_base(self, data):
+        """
+            Reads a list of string
+            returns CountVectorizer matrix for every instance of premise/hypothesis
+        """
+        p=data['premise'].tolist() # a list of sentence (string)
+        h=data['hypothesis'].tolist()
+        p_word_count=self.vectorizer.fit_transform(p)
+        h_word_count=self.vectorizer.fit_transform(h)
+        parr=p.toarray() #2d array
+        harr=h.toarray()
+        self.cv_base=np.concatenate((parr, harr), axis=1)
+        return self.cv_base
+
     def bleu (self, data):
         '''The BLEU score of the hypothesis with respect to the premise, using an n-gram length between 1 and 4'''
         '''data: data parition (train/dev/test)'''
         '''return a list of BLEU score'''
         b = data.apply(lambda row: sentence_bleu(row['premise'],row['hypothesis'], weights=(0.25, 0.25, 0.25, 0.25)), axis=1)
         bleu=b.tolist()
-        return bleu
-    
+        bleu=np.array([bleu])
+        bleu_arr=bleu.T
+        #fm=np.concatenate((self.cv_base, bleu_arr), axis=1)
+        return bleu_arr
+
     def normalize(self, comment, lowercase, remove_stopwords):
-        '''preprocessing: lowercase, remove stopwords, lemmatize'''
+        '''
+        preprocessing function: lowercase, remove stopwords, lemmatize
+        return clean list of sentence (string)
+        '''
         nlp = spacy.load('en_core_web_sm')
         stops = nlp.Defaults.stop_words
         if lowercase:
@@ -41,83 +63,147 @@ class NLI_Baseline(NLI_Classifier_Base):
             if lemma:
                 if not remove_stopwords or (remove_stopwords and lemma not in stops):
                     lemmatized.append(lemma)
-        return " ".join(lemmatized)
-    
-    def euclidean_distance(self, x,y):
-        ''' return euclidean distance between two lists of sentences'''
+        return " ".join(lemmatized) # a string
 
-        return sqrt(sum(pow(a-b,2) for a, b in zip(x, y)))
+    def clean(self, data):
+        '''
+        use the preprocessing function above
+        return clean list of sentence (string)
+        '''
+        p_clean=data['premise'].apply(normalize, lowercase=True, remove_stopwords=True)
+        h_clean=data['hypothesis'].apply(normalize, lowercase=True, remove_stopwords=True)
+        p_clean=p_clean.values.tolist()
+        h_clean=h_clean.values.tolist()
+        return p_clean, h_clean
 
-    def distance_to_similarity(self, distance):
-        return 1/exp(distance)
-    
-    def jaccard_similarity(self, x, y):
+    def euclidean_distance(self, data):
+        '''
+        Takes two clean list of sentences as input
+        return euclidean distance between two lists of sentences
+        '''
+        p_clean, h_clean=self.clean(data)
+        output = list (map (lambda x,y: [x,y],p_clean,h_clean))
+        euc=[]
+        for p in output:
+            embeddings = [nlp(pair).vector for pair in p]
+            e=sqrt(sum(pow(a-b,2) for a, b in zip(embeddings[0], embeddings[1])))
+            dist=1/exp(e)
+            euc.append(dist)
+        euc=np.array([euc])
+        euc=euc.T
+       # fm=np.concatenate((self.cv_base, euc), axis=1)
+        return euc
+
+    def jaccard_similarity(self, data):
         ''' returns the jaccard similarity between two lists of sentences'''
-        intersection_cardinality = len(set.intersection(*[set(x), set(y)]))
-        union_cardinality = len(set.union(*[set(x), set(y)]))
-        return intersection_cardinality/float(union_cardinality)
+        p_clean, h_clean=self.clean(data)
+        output = list (map (lambda x,y: [x,y],p_clean,h_clean))
+        jd=[]
+        for p in output:
+            sentences = [pair.split(" ") for pair in p]
+            intersection_cardinality = len(set.intersection(*[set(sentences[0]), set(sentences[1])]))
+            union_cardinality = len(set.union(*[set(sentences[0]), set(sentences[1])]))
+            jdd=intersection_cardinality/float(union_cardinality)
+            jd.append(jdd)
+        jd=np.array([jd])
+        jd=jd.T
+        #fm=np.concatenate((self.cv_base, jd), axis=1)
+        return jd
 
-    def bert_cos_sim (self, p,h):
-        '''Take 2 lists of string, return a list of cosine similarity between two lists using SentenceTransformer'''
+    def bert_cos_sim (self, data):
+        '''
+        Take 2 lists of string, return a list of cosine similarity between two lists using SentenceTransformer
+        '''
+        p=data['premise'].tolist() # a list of sentence (string)
+        h=data['hypothesis'].tolist()
         model = SentenceTransformer('bert-base-nli-mean-tokens')
         pm=model.encode(p, convert_to_tensor=True)
         hm=model.encode(h, convert_to_tensor=True)
         cosine_scores = util.cos_sim(pm, hm)
         bert_sim=np.diag(cosine_scores)
         bert_sim=bert_sim.tolist()
+        bert_sim=np.array([bert_sim])
+        bert_sim=bert_sim.T
         return bert_sim
-    
+
     def word_overlap (self, data):
         '''
         The number of words that occur both in hypothesis and premise
         '''
         data['word_overlap'] = data.apply(lambda r: set(r['premise'].lower().split()) & set(r['hypothesis'].lower().split()),axis=1)
+        wo=data['word_overlap'].str.len().tolist()
+        wo=np.array([wo])
+        wo=wo.T
+        return wo
 
-        return data['word_overlap'].str.len()
-    
-    def sent_polarity(self, p, h):
+    def sent_polarity(self, data):
         '''take a list of sentence as input, return a list of polarity score and the sum of polarity score between premise and hypothesis'''
-
+        p_clean, h_clean=self.clean(data)
         sent_p=[]
         sent_h=[]
-        for i in p:
+        for i in p_clean:
             res=TextBlob(i).sentiment.polarity
             sent_p.append(res)
 
-        for j in h:
+        for j in h_clean:
             res=TextBlob(j).sentiment.polarity
             sent_h.append(res)
 
         sum_list = [a + b for a, b in zip(sent_p, sent_h)]
+        sum_list=np.array([sum_list])
+        sum_list=sum_list.T
+        return sum_list
 
-        return sent_p, sent_h, sum_list
-    
-    def subj(self, p, h):
+    def subj(self, data):
         '''take a list of sentence as input, return a list of subjectivity score and the difference of subjectivity score between premise and hypothesis'''
-
+        p_clean, h_clean=self.clean(data)
         subj_p=[]
         subj_h=[]
-        for i in p:
+        for i in p_clean:
             res=TextBlob(i).sentiment.subjectivity
             subj_p.append(res)
 
-        for j in h:
+        for j in h_clean:
             res=TextBlob(j).sentiment.subjectivity
             subj_h.append(res)
 
         diff_list = [a - b for a, b in zip(subj_p, subj_h)]
+        diff_list=np.array([diff_list])
+        diff_list=diff_list.T
+        return diff_list
 
-        return subj_p, subj_h, diff_list
-    
-    def w2v_cos_sim(self, p,h):
+    def w2v_cos_sim(self, data):
         '''take a list of string as input, output a list of word2vec cosine similarity score between premise and hypothesis'''
         nlpm = spacy.load("en_core_web_md")
+        p_clean, h_clean=self.clean(data)
         cos_sim=[]
-        for i,v in zip(p,h):
+        for i,v in zip(p_clean,h_clean):
             p=nlpm(i)
             h=nlpm(v)
             score=p.similarity(h)
             cos_sim.append(score)
+        cos_sim=np.array([cos_sim])
+        cos_sim=cos_sim.T
         return cos_sim
-    
+
+    def main(self,train_file):
+        df = DataFrame(pd.read_csv(self.train_file))
+        data = df.english_df
+        baseline=NLI_Baseline()
+        cv_base=baseline.CV_base(data)
+        bleu_m=baseline.bleu(data)
+        eud_m=baseline.euclidean_distance(data)
+        judm=baseline.jaccard_similarity(data)
+        besim=baseline.bert_cos_sim(data)
+        wom=baseline.word_overlap(data)
+        plm=baseline.sent_polarity(data)
+        sbm=baseline.subj(data)
+        w2vm=baseline.w2v_cos_sim(data)
+        fm=np.concatenate((cv_base,bleu_m,eud_m,judm,besim,wom,plm,sbm,w2vm), axis=1)
+        return fm
+
+
+
+
+
     

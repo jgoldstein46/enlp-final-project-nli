@@ -3,6 +3,8 @@ from classifiers import *
 from classifiers.ApproachOne import NLI_Baseline
 from classifiers.ApproachThree import LSTM_NLI_Classifier
 from classifiers.EISM import EISM
+from classifiers.ApproachFour import GRU_NLI_Classifier
+from classifiers.ApproachTwo import BERT_NLI_Classifier
 import tensorflow as tf
 import pandas as pd
 
@@ -35,10 +37,10 @@ def main():
     params = vars(args)
     # TODO put your classes here to be used
     classifier2class = {'baseline': NLI_Baseline,
-    'bert': None,
+    'bert': BERT_NLI_Classifier,
     'lstm': LSTM_NLI_Classifier,
-    'gru': None,
     'eism': EISM,
+    'gru': GRU_NLI_Classifier
     }
     params['nli_classifier_class'] = classifier2class[params['classifier']]
     params['classifier_params'] = {

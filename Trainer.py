@@ -2,7 +2,7 @@ from DataFrame import DataFrame
 # from classifiers.Classifier import NLI_Classifier
 from classifiers.ApproachOne import NLI_Baseline
 from classifiers.ApproachTwo import BERT_NLI_Classifier
-
+from classifiers.ApproachFour import GRU_NLI_Classifier
 from sklearn.model_selection import train_test_split
 from transformers import BertTokenizer
 import numpy as np
@@ -11,6 +11,8 @@ import tensorflow as tf
 from tensorflow.keras.utils import Sequence
 import math
 import re
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report
 
 SEP = '[SEP]'
 CLS = '[CLS]'
@@ -44,6 +46,10 @@ class NLI_Trainer:
         classifier = self.params['nli_classifier_class'] 
         self.baseline = classifier == NLI_Baseline
         self.use_bert = classifier == BERT_NLI_Classifier
+        self.gru_model = classifier == GRU_NLI_Classifier
+        
+        if self.use_bert:
+            self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
         
         # create the vocab using tokenizer if necessary 
         self.vocab = self.create_vocab(self.train_data)
@@ -253,7 +259,13 @@ class NLI_Trainer:
     
     # TODO implement this method 
     def run_training_loop_approach_one(self):
-        raise NotImplementedError
+        # raise NotImplementedError
+        rf = RandomForestClassifier(n_estimators=200, random_state=0, n_jobs=3)
+        rf.fit(self.train_data, self.train_labels)
+        dev_preds = rf.predict(self.dev_data)
+        test_preds = rf.predict(self.test_data)
+        print('baseline dev result', classification_report(self.dev_labels,dev_preds))
+        print('baseline test result', classification_report(self.test_labels,test_preds))
     
     # helper function for debugging 
     def run_on_example(self):
@@ -266,3 +278,4 @@ class NLI_Trainer:
         }
         output = self.nli_classifier(inputs)
         print(output)
+        
