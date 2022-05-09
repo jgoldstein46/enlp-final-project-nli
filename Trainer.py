@@ -74,8 +74,6 @@ class NLI_Trainer:
         self.dev_batch_generator = batch_generator(self, self.dev_data, self.dev_labels, 1)
         self.test_batch_generator = batch_generator(self, self.test_data, self.test_labels, 1)
 
-        if self.use_bert:
-            self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
             
     class GPT2BatchGenerator(Sequence):
         def __init__(self, trainer, data_df, labels_df, batch_size): 
