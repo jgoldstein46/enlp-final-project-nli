@@ -2,7 +2,7 @@ from classifiers.Classifier import NLI_Classifier_Base
 import numpy as np
 from keras.models import Sequential
 from keras.layers import Embedding, Bidirectional, LSTM, Dense, TimeDistributed, Dropout, concatenate
-
+from tensorflow.keras.layers import BatchNormalization
 import numpy as np
 # from keras import backend as K
 # from tensorflow.keras import Model
@@ -25,12 +25,23 @@ class LSTM_NLI_Classifier(NLI_Classifier_Base):
         # classifier.add(self.embedding_layer)
         # classifier.add(Dropout(self.dropout))
         self.LSTM = Sequential()
+        self.LSTM.add(TimeDistributed(Dense(self.hidden_size, activation='relu')))
         for _ in range(self.n_layers - 1):
             self.LSTM.add(Bidirectional(LSTM(self.hidden_size, return_sequences=True, dropout=self.dropout)))
-            self.LSTM.add(TimeDistributed(Dense(self.hidden_size, activation='softmax')))
+            self.LSTM.add(BatchNormalization())
+            # self.LSTM.add(TimeDistributed(Dense(self.hidden_size, activation='softmax')))
+            
         self.LSTM.add(Bidirectional(LSTM(self.hidden_size, return_sequences=False, dropout=self.dropout)))
+        self.LSTM.add(BatchNormalization())
         
-        self.output_layer = Dense(3, activation='softmax')
+        self.output_layer = Sequential()
+        self.output_layer.add(Dropout(self.dropout))
+        for _ in range(3):
+            self.output_layer.add(Dense(2 * self.hidden_size, activation='relu'))
+            self.output_layer.add(Dropout(self.dropout))
+            self.output_layer.add(BatchNormalization())
+            
+        self.output_layer.add(Dense(3, activation='softmax'))
         # self.classifier = classifier
         
         # self.compile(optimizer=self.optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
@@ -61,9 +72,11 @@ class LSTM_NLI_Classifier(NLI_Classifier_Base):
         hypothesis_emb = self.embedding_layer(inputs['hypothesis'])
         premise_emb = self.embedding_layer(inputs['premise'])
         
-        self.LSTM(premise_emb)
-        encoding = self.LSTM(hypothesis_emb)
-        output = self.output_layer(encoding)
+        prem_enc = self.LSTM(premise_emb)
+        hyp_enc = self.LSTM(hypothesis_emb)
+        joint = concatenate([prem_enc, hyp_enc])
+        
+        output = self.output_layer(joint)
         
         # print(seq)
         return output #self.classifier(seq)

@@ -7,7 +7,7 @@ from tensorflow import keras
 from keras.layers import Embedding, Bidirectional, GRU, Dense, TimeDistributed, Dropout
 from keras.layers import concatenate, Dense, Input, Dropout, TimeDistributed
 from keras.layers.embeddings import Embedding
-from keras.layers.normalization import BatchNormalization 
+from tensorflow.keras.layers import BatchNormalization 
 from keras.layers.wrappers import Bidirectional
 import tensorflow_addons as tfa
 

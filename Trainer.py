@@ -15,6 +15,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
 from tensorflow import keras
 from datetime import datetime
+from transformers import GPT2Tokenizer
 
 SEP = '[SEP]'
 CLS = '[CLS]'
@@ -53,6 +54,11 @@ class NLI_Trainer:
         self.baseline = classifier == NLI_Baseline
         self.use_bert = classifier == BERT_NLI_Classifier
         self.use_gru = classifier == GRU_NLI_Classifier
+        
+        if self.params['classifier'] == 'gpt2': 
+            batch_generator = self.GPT2BatchGenerator
+        else:
+            batch_generator = self.BatchGenerator
 
         if self.use_bert:
             self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
@@ -62,14 +68,34 @@ class NLI_Trainer:
         self.params['classifier_params']['vocab'] = self.vocab
 
         self.nli_classifier = classifier(self.params['classifier_params'])
-        self.train_batch_generator = self.BatchGenerator(self, self.train_data, self.train_labels,
+        
+        self.train_batch_generator = batch_generator(self, self.train_data, self.train_labels,
                                                          self.params['batch_size'])
-        self.dev_batch_generator = self.BatchGenerator(self, self.dev_data, self.dev_labels, 1)
-        self.test_batch_generator = self.BatchGenerator(self, self.test_data, self.test_labels, 1)
+        self.dev_batch_generator = batch_generator(self, self.dev_data, self.dev_labels, 1)
+        self.test_batch_generator = batch_generator(self, self.test_data, self.test_labels, 1)
 
         if self.use_bert:
             self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-
+            
+    class GPT2BatchGenerator(Sequence):
+        def __init__(self, trainer, data_df, labels_df, batch_size): 
+            self.data_l = [[prem, hyp] for prem, hyp in zip(data_df['premise'].tolist(), data_df['hypothesis'].tolist())]
+            self.label_a = [trainer.one_hot_encode_label(label) for label in labels_df['label'].tolist()]
+            self.batch_size = batch_size
+            self.trainer = trainer
+            self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+            self.tokenizer.pad_token = PAD
+            
+        def __len__(self):
+            return math.ceil(len(self.label_a) / self.batch_size)
+        
+        def __getitem__(self, idx):
+            input_batch = self.tokenizer(self.data_l[idx*self.batch_size:(idx+1)*self.batch_size], padding=True)
+            input_batch['labels'] = np.array(self.label_a[idx*self.batch_size:(idx+1)*self.batch_size])
+            
+            
+            return input_batch
+        
     class BatchGenerator(Sequence):
         def __init__(self, trainer, data_df, labels_df, batch_size):
             self.hypothesis_a = [trainer.vectorize_sequence(seq) for seq in
