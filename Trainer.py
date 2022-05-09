@@ -11,10 +11,9 @@ import tensorflow as tf
 from tensorflow.keras.utils import Sequence
 import math
 import re
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report
 from tensorflow import keras
 from datetime import datetime
+
 
 SEP = '[SEP]'
 CLS = '[CLS]'
@@ -285,13 +284,30 @@ class NLI_Trainer:
 
     # TODO implement this method
     def run_training_loop_approach_one(self):
-        # raise NotImplementedError
+        import matplotlib.pyplot as plt
+        from sklearn.ensemble import RandomForestClassifier
+        from sklearn.metrics import classification_report
+        # Train a random forest classifier
         rf = RandomForestClassifier(n_estimators=200, random_state=0, n_jobs=3)
-        rf.fit(self.train_data, self.train_labels)
-        dev_preds = rf.predict(self.dev_data)
-        test_preds = rf.predict(self.test_data)
+        baseline = NLI_Baseline()
+        train_fm_data=baseline.fv(self.train_data)
+        dev_fm_data=baseline.fv(self.dev_data)
+        test_fm_data=baseline.fv(self.test_data)
+        rf.fit(train_fm_data, self.train_labels)
+        dev_preds = rf.predict(dev_fm_data)
+        test_preds = rf.predict(test_fm_data)
         print('baseline dev result', classification_report(self.dev_labels, dev_preds))
         print('baseline test result', classification_report(self.test_labels, test_preds))
+        # Feature importances
+        features =["BLEU",'overlap_count','polarity','subjectivity','similarity','bert_sim','eucd','jaccd']
+        importances = rf.feature_importances_
+        indices = np.argsort(importances)
+        # Plot the feature importances of the forest
+        plt.title('Feature Importances of Random Forest')
+        plt.barh(range(len(indices)), importances[indices], color='b', align='center')
+        plt.yticks(range(len(indices)), [features[i] for i in indices])
+        plt.xlabel('Relative Importance')
+        plt.show()
 
     # helper function for debugging
     def run_on_example(self):
