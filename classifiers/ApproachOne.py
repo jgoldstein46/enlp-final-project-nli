@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 import spacy
 from math import sqrt, pow, exp
-from sentence_transformers import SentenceTransformer, util
+#from sentence_transformers import SentenceTransformer, util
 from classifiers.Classifier import NLI_Classifier_Base
 from DataFrame import DataFrame
 

@@ -33,6 +33,7 @@ class NLI_Trainer:
         df = DataFrame(pd.read_csv(self.train_file))
         # start out with only english
         english_df = df.english_df
+        self.df = english_df
         ########################
         # Train test split     #
         ########################
@@ -150,11 +151,39 @@ class NLI_Trainer:
     # vocab is a map from word to index
     # it can be used to convert words to indexes (in Trainer.vectorize_sequence),
     # which can then be used as input to an embeddings layer
+
+    def encode_sentence(self,s):
+       tokens = list(self.tokenizer.tokenize(s))
+       tokens = tokens[:50] #padding
+       tokens.append(SEP)
+       return self.tokenizer.convert_tokens_to_ids(tokens)
+
+    def bert_encode(self,premise, hypothesis, tokenizer):
+        
+        sentence1 = tf.ragged.constant([self.encode_sentence(s) for s in np.array(premise)])
+        sentence2 = tf.ragged.constant([self.encode_sentence(s) for s in np.array(hypothesis)])
+        
+        clss = [tokenizer.convert_tokens_to_ids([CLS])]*(sentence1.shape[0])
+        input_word_ids = tf.concat([clss, sentence1, sentence2], axis=-1)
+
+
+        input_masks = tf.ones_like(input_word_ids).to_tensor()
+
+        type_cls = tf.zeros_like(clss)
+        type_s1 = tf.zeros_like(sentence1)
+        type_s2 = tf.ones_like(sentence2)
+        input_type_ids = tf.concat([type_cls, type_s1, type_s2], axis=-1).to_tensor()
+
+        inputs = {
+          'input_word_ids': input_word_ids.to_tensor(),
+          'input_masks': input_masks,
+          'input_type_ids': input_type_ids}
+      
+        return inputs
+    
     def create_vocab(self, df):
         if self.use_bert:
-            vocab = {k: v for k, v in self.tokenizer.vocab.items()}
-            vocab[START] = 101
-            vocab[END] = 102
+            vocab = self.bert_encode(self.df['premise'], self.df['hypothesis'], self.tokenizer)
             return vocab
 
         sentences = df['premise'].tolist() + df['hypothesis'].tolist()
@@ -235,6 +264,18 @@ class NLI_Trainer:
             # TODO implement this below
             self.run_training_loop_approach_one()
             return
+        
+        if self.use_bert:
+            
+            filepath=('logs/scalars/BERT/best_weight_%s.hdf5'%datetime.now().strftime("%Y%m%d-%H%M%S"))
+            
+            checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=1, 
+                                              save_best_only=True, save_weights_only=True, 
+                                              mode='min',save_freq = 'epoch')
+        
+            self.nli_classifier.fit(self.vocab, self.english_df['labels'], epochs = 3, 
+                    batch_size = 16, callbacks=[checkpoint], validation_split=0.2)
+        
         # must complie the model
         # TODO should the optimizer be passed in as a command line argument?
         # optimizer = tf.optimizers.Adadelta(clipvalue=0.5)
