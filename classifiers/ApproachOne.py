@@ -2,49 +2,29 @@ import pandas as pd
 from itertools import product
 import numpy as np
 from sklearn.model_selection import train_test_split
-from nltk.translate.bleu_score import sentence_bleu
-from sklearn.metrics.pairwise import cosine_similarity
 import spacy
 from math import sqrt, pow, exp
-from textblob import TextBlob
-from sentence_transformers import SentenceTransformer, util
+#from sentence_transformers import SentenceTransformer, util
 from classifiers.Classifier import NLI_Classifier_Base
 from DataFrame import DataFrame
 
-class NLI_Baseline(NLI_Classifier_Base):
-    def __init__(self, params):
-        self.params = params
-        self.train_file = params['train']
-        self.test_file = params['test']
+class NLI_Baseline():
+    def __init__(self, data):
         df = DataFrame(pd.read_csv(self.train_file))
         # start out with english data
         self.vectorizer = CountVectorizer(stop_words='english')
         data = df.english_df #data is a df
 
 
-    def CV_base(self, data):
-        """
-            Reads a list of string
-            returns CountVectorizer matrix for every instance of premise/hypothesis
-        """
-        p=data['premise'].tolist() # a list of sentence (string)
-        h=data['hypothesis'].tolist()
-        p_word_count=self.vectorizer.fit_transform(p)
-        h_word_count=self.vectorizer.fit_transform(h)
-        parr=p.toarray() #2d array
-        harr=h.toarray()
-        self.cv_base=np.concatenate((parr, harr), axis=1)
-        return self.cv_base
-
     def bleu (self, data):
         '''The BLEU score of the hypothesis with respect to the premise, using an n-gram length between 1 and 4'''
         '''data: data parition (train/dev/test)'''
         '''return a list of BLEU score'''
+        from nltk.translate.bleu_score import sentence_bleu
         b = data.apply(lambda row: sentence_bleu(row['premise'],row['hypothesis'], weights=(0.25, 0.25, 0.25, 0.25)), axis=1)
         bleu=b.tolist()
         bleu=np.array([bleu])
         bleu_arr=bleu.T
-        #fm=np.concatenate((self.cv_base, bleu_arr), axis=1)
         return bleu_arr
 
     def normalize(self, comment, lowercase, remove_stopwords):
@@ -70,8 +50,8 @@ class NLI_Baseline(NLI_Classifier_Base):
         use the preprocessing function above
         return clean list of sentence (string)
         '''
-        p_clean=data['premise'].apply(normalize, lowercase=True, remove_stopwords=True)
-        h_clean=data['hypothesis'].apply(normalize, lowercase=True, remove_stopwords=True)
+        p_clean=data['premise'].apply(self.normalize, lowercase=True, remove_stopwords=True)
+        h_clean=data['hypothesis'].apply(self.normalize, lowercase=True, remove_stopwords=True)
         p_clean=p_clean.values.tolist()
         h_clean=h_clean.values.tolist()
         return p_clean, h_clean
@@ -81,6 +61,7 @@ class NLI_Baseline(NLI_Classifier_Base):
         Takes two clean list of sentences as input
         return euclidean distance between two lists of sentences
         '''
+        nlp = spacy.load('en_core_web_sm')
         p_clean, h_clean=self.clean(data)
         output = list (map (lambda x,y: [x,y],p_clean,h_clean))
         euc=[]
@@ -91,7 +72,6 @@ class NLI_Baseline(NLI_Classifier_Base):
             euc.append(dist)
         euc=np.array([euc])
         euc=euc.T
-       # fm=np.concatenate((self.cv_base, euc), axis=1)
         return euc
 
     def jaccard_similarity(self, data):
@@ -107,13 +87,13 @@ class NLI_Baseline(NLI_Classifier_Base):
             jd.append(jdd)
         jd=np.array([jd])
         jd=jd.T
-        #fm=np.concatenate((self.cv_base, jd), axis=1)
         return jd
 
     def bert_cos_sim (self, data):
         '''
         Take 2 lists of string, return a list of cosine similarity between two lists using SentenceTransformer
         '''
+        from sklearn.metrics.pairwise import cosine_similarity
         p=data['premise'].tolist() # a list of sentence (string)
         h=data['hypothesis'].tolist()
         model = SentenceTransformer('bert-base-nli-mean-tokens')
@@ -138,6 +118,7 @@ class NLI_Baseline(NLI_Classifier_Base):
 
     def sent_polarity(self, data):
         '''take a list of sentence as input, return a list of polarity score and the sum of polarity score between premise and hypothesis'''
+        from textblob import TextBlob
         p_clean, h_clean=self.clean(data)
         sent_p=[]
         sent_h=[]
@@ -156,6 +137,7 @@ class NLI_Baseline(NLI_Classifier_Base):
 
     def subj(self, data):
         '''take a list of sentence as input, return a list of subjectivity score and the difference of subjectivity score between premise and hypothesis'''
+        from textblob import TextBlob
         p_clean, h_clean=self.clean(data)
         subj_p=[]
         subj_h=[]
@@ -186,20 +168,17 @@ class NLI_Baseline(NLI_Classifier_Base):
         cos_sim=cos_sim.T
         return cos_sim
 
-    def main(self,train_file):
-        df = DataFrame(pd.read_csv(self.train_file))
-        data = df.english_df
-        baseline=NLI_Baseline()
-        cv_base=baseline.CV_base(data)
-        bleu_m=baseline.bleu(data)
-        eud_m=baseline.euclidean_distance(data)
-        judm=baseline.jaccard_similarity(data)
-        besim=baseline.bert_cos_sim(data)
-        wom=baseline.word_overlap(data)
-        plm=baseline.sent_polarity(data)
-        sbm=baseline.subj(data)
-        w2vm=baseline.w2v_cos_sim(data)
-        fm=np.concatenate((cv_base,bleu_m,eud_m,judm,besim,wom,plm,sbm,w2vm), axis=1)
+    def fv(self,data):
+        #cv_base=baseline.CV_base(data) #remove cv_base gets 1% inprovement in accuracy
+        bleu_m=self.bleu(data)
+        eud_m=self.euclidean_distance(data)
+        judm=self.jaccard_similarity(data)
+        besim=self.bert_cos_sim(data)
+        wom=self.word_overlap(data)
+        plm=self.sent_polarity(data)
+        sbm=self.subj(data)
+        w2vm=self.w2v_cos_sim(data)
+        fm=np.concatenate((bleu_m,eud_m,judm,besim,wom,plm,sbm,w2vm), axis=1) #remove cv_base gets 1% inprovement in accuracy
         return fm
 
 

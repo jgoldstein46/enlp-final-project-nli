@@ -4,11 +4,13 @@ import keras
 import tensorflow as tf
 import numpy as np
 from tensorflow import keras
+
 from keras.layers import Embedding, Bidirectional, GRU, Dense, TimeDistributed, Dropout
 from keras.layers import concatenate, Dense, Input, Dropout, TimeDistributed
 from keras.layers.embeddings import Embedding
 from tensorflow.keras.layers import BatchNormalization 
 from keras.layers.wrappers import Bidirectional
+
 import tensorflow_addons as tfa
 
 
@@ -58,10 +60,12 @@ class GRU_NLI_Classifier():
         joint = concatenate([prem, hypo])
         # Layer 6-8 Dropout
         joint = Dropout(self.dropout)(joint)
+        hidden_size = 2 * self.hidden_size
         for i in range(3):
-            joint = Dense(2 * self.hidden_size, activation='relu')(joint)
+            joint = Dense(hidden_size, activation='relu')(joint)
             joint = Dropout(self.dropout)(joint)
             joint = BatchNormalization()(joint)
+            hidden_size=hidden_size/2
         # Layer 9 Output
         pred = Dense(3, activation='softmax')(joint)
 
