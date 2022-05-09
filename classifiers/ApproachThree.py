@@ -21,15 +21,17 @@ class LSTM_NLI_Classifier(NLI_Classifier_Base):
         # embedding_layer = Embedding(len(self.vocab), self.embedding_size, 
         #                             embeddings_initializer=tf.keras.initializers.Constant(embedding_matrix))
         super().__init__(params)
-        classifier = Sequential()
-        classifier.add(self.embedding_layer)
-        classifier.add(Dropout(self.dropout))
+        # classifier = Sequential()
+        # classifier.add(self.embedding_layer)
+        # classifier.add(Dropout(self.dropout))
+        self.LSTM = Sequential()
         for _ in range(self.n_layers - 1):
-            classifier.add(Bidirectional(LSTM(self.hidden_size, return_sequences=True, dropout=self.dropout)))
-            classifier.add(TimeDistributed(Dense(self.hidden_size, activation='softmax')))
-        classifier.add(Bidirectional(LSTM(self.hidden_size, return_sequences=False, dropout=self.dropout)))
-        classifier.add(Dense(3, activation='softmax'))
-        self.classifier = classifier
+            self.LSTM.add(Bidirectional(LSTM(self.hidden_size, return_sequences=True, dropout=self.dropout)))
+            self.LSTM.add(TimeDistributed(Dense(self.hidden_size, activation='softmax')))
+        self.LSTM.add(Bidirectional(LSTM(self.hidden_size, return_sequences=False, dropout=self.dropout)))
+        
+        self.output_layer = Dense(3, activation='softmax')
+        # self.classifier = classifier
         
         # self.compile(optimizer=self.optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
         self.compile()
@@ -55,6 +57,13 @@ class LSTM_NLI_Classifier(NLI_Classifier_Base):
 #         return embedding_matrix
 
     def call(self, inputs, **kwds):
-        seq = concatenate((inputs['premise'], inputs['hypothesis']), axis=-1)
+        # seq = concatenate((inputs['premise'], inputs['hypothesis']), axis=-1)
+        hypothesis_emb = self.embedding_layer(inputs['hypothesis'])
+        premise_emb = self.embedding_layer(inputs['premise'])
+        
+        self.LSTM(premise_emb)
+        encoding = self.LSTM(hypothesis_emb)
+        output = self.output_layer(encoding)
+        
         # print(seq)
-        return self.classifier(seq)
+        return output #self.classifier(seq)

@@ -13,6 +13,8 @@ import math
 import re
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
+from tensorflow import keras
+from datetime import datetime
 
 SEP = '[SEP]'
 CLS = '[CLS]'
@@ -233,21 +235,30 @@ class NLI_Trainer:
         # TODO should the optimizer be passed in as a command line argument? 
         # optimizer = tf.optimizers.Adadelta(clipvalue=0.5)
         # self.nli_classifier.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
+        logdir = "logs/scalars/" + datetime.now().strftime("%Y%m%d-%H%M%S") + f'--{self.params["classifier"]}--do-{self.params["dropout"]}--hs-{self.params["hidden_size"]}--em-{self.params["embedding_size"]}'
+        tensorboard_callback = keras.callbacks.TensorBoard(log_dir=logdir)
         
-        for i in range(self.params['epochs']):
-            print(f'Epoch {i+1} / {self.params["epochs"]}')
-            # Training
-            # self.nli_classifier.fit(self.batch_generator_nli(self.train_data, self.train_labels, self.params['batch_size']), epochs=1, 
-            # steps_per_epoch=self.train_data.shape[0]/self.params['batch_size'])
-            self.nli_classifier.fit(self.train_batch_generator, epochs=1, 
-            steps_per_epoch=self.train_data.shape[0]/self.params['batch_size'])
+        self.nli_classifier.fit(self.train_batch_generator, epochs=self.params['epochs'], 
+            # steps_per_epoch=self.train_data.shape[0]/self.params['batch_size'], 
+                                    callbacks=[tensorboard_callback],
+                                    batch_size=self.params['batch_size'],
+                                    validation_data=self.dev_batch_generator
+                               )
+#         for i in range(self.params['epochs']):
+#             print(f'Epoch {i+1} / {self.params["epochs"]}')
+#             # Training
+#             # self.nli_classifier.fit(self.batch_generator_nli(self.train_data, self.train_labels, self.params['batch_size']), epochs=1, 
+#             # steps_per_epoch=self.train_data.shape[0]/self.params['batch_size'])
+#             self.nli_classifier.fit(self.train_batch_generator, epochs=1, 
+#             steps_per_epoch=self.train_data.shape[0]/self.params['batch_size'], 
+#                                     callbacks=[tensorboard_callback])
             
-            #Evaluation
-            # loss, acc = self.nli_classifier.evaluate(self.batch_generator_nli(self.dev_data, self.dev_labels),
-            # steps=self.dev_data.shape[0])
-            loss, acc, recall, precision, f1 = self.nli_classifier.evaluate(self.dev_batch_generator,
-            steps=self.dev_data.shape[0])
-            print('Dev Loss:', loss, 'Dev Acc:', acc, 'Dev recall:', recall, 'Dev precision:', precision, 'Dev f1:', f1)
+#             #Evaluation
+#             # loss, acc = self.nli_classifier.evaluate(self.batch_generator_nli(self.dev_data, self.dev_labels),
+#             # steps=self.dev_data.shape[0])
+#             loss, acc, recall, precision, f1 = self.nli_classifier.evaluate(self.dev_batch_generator,
+#             steps=self.dev_data.shape[0], callbacks=[tensorboard_callback])
+#             print('Dev Loss:', loss, 'Dev Acc:', acc, 'Dev recall:', recall, 'Dev precision:', precision, 'Dev f1:', f1)
         # If using test set (after finding your best model only)
         # test_loss, test_acc = self.nli_classifier.evaluate(self.batch_generator_nli(self.test_data, self.test_labels), 
         # steps=self.test_data.shape[0])

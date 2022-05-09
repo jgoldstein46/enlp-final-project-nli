@@ -30,7 +30,7 @@ class NLI_Classifier_Base(Model):
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=0.0004)
     # override compile function to stop repeating duplicated code 
     def compile(self):
-        super().compile(optimizer=self.optimizer, loss='categorical_crossentropy', metrics=['accuracy', tf.keras.metrics.Recall(), tf.keras.metrics.Precision(), tfa.metrics.F1Score(num_classes=3)], run_eagerly=False)
+        super().compile(optimizer=self.optimizer, loss='categorical_crossentropy', metrics=['accuracy', tf.keras.metrics.Recall(), tf.keras.metrics.Precision(), tfa.metrics.F1Score(num_classes=3,average='micro')], run_eagerly=False)
 
     def load_pretrained_embeddings(self):
         # return super().load_pretrained_embeddings()
