@@ -25,7 +25,7 @@ class BERT_NLI_Classifier(NLI_Classifier_Base):
 
         
 
-    def build_bert_baseline(self,max_len=103):
+    def build_bert_baseline(self,max_len=128):
           bert_layer = TFBertModel.from_pretrained('bert-base-uncased')
           input_word_ids = tf.keras.Input(shape = (max_len,),dtype =tf.int32, name='input_word_ids')
           input_masks = tf.keras.Input(shape = (max_len,),dtype =tf.int32, name='input_masks')
@@ -37,7 +37,7 @@ class BERT_NLI_Classifier(NLI_Classifier_Base):
           
           model = tf.keras.Model(inputs=[input_word_ids,input_masks,input_type_ids],outputs=output)
           model.compile(tf.keras.optimizers.Adam(lr=3e-5),
-                        loss='sparse_categorical_crossentropy',metrics=['accuracy'])
+                        loss='categorical_crossentropy',metrics=['accuracy'])
           
           print(model.summary())
           

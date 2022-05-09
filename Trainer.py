@@ -100,9 +100,9 @@ class NLI_Trainer:
 
 
     class BERTBatchGenerator(Sequence):
-        def __init__(self,trainer ,train_data, train_labels,batch_size):
-            self.sentence_pairs = train_data
-            self.labels = train_labels
+        def __init__(self,trainer ,data_df, labels_df,batch_size):
+            self.sentence_pairs = np.array([[prem, hyp] for prem, hyp in zip(data_df['premise'].tolist(), data_df['hypothesis'].tolist())])
+            self.labels = np.array([trainer.one_hot_encode_label(label) for label in labels_df['label'].tolist()])
             self.batch_size = batch_size
             
             self.shuffle = True
@@ -112,14 +112,13 @@ class NLI_Trainer:
 
 
         def __len__(self):
-        # Denotes the number of batches per epoch.
+            # Denotes the number of batches per epoch.
             return len(self.sentence_pairs) // self.batch_size
 
         def __getitem__(self, idx):
             # Retrieves the batch of index.
             indexes = self.indexes[idx * self.batch_size : (idx + 1) * self.batch_size]
-            print(self.sentence_pairs)
-            print(indexes)
+
             sentence_pairs = self.sentence_pairs[indexes]
 
             # With BERT tokenizer's batch_encode_plus batch of both the sentences are
@@ -128,8 +127,8 @@ class NLI_Trainer:
             encoded = self.tokenizer.batch_encode_plus(
                 sentence_pairs.tolist(),
                 add_special_tokens=True,
-                max_length=max_length,
                 return_attention_mask=True,
+                max_length = 128,
                 return_token_type_ids=True,
                 pad_to_max_length=True,
                 return_tensors="tf",
