@@ -16,23 +16,6 @@ class NLI_Baseline():
         data = df.english_df #data is a df
 
 
-    def CV_base(self, data):
-        """
-            Reads a list of string
-            returns CountVectorizer matrix for every instance of premise/hypothesis
-        """
-        from sklearn.feature_extraction.text import CountVectorizer
-        p=data['premise'].tolist() # a list of sentence (string)
-        h=data['hypothesis'].tolist()
-        p_word_count=self.vectorizer.fit_transform(p)
-        h_word_count=self.vectorizer.fit_transform(h)
-        parr= np.array([p]) #2d array
-        harr=np.array([h])
-        parr=parr.T
-        harr=harr.T
-        self.cv_base=np.concatenate((parr, harr), axis=1)
-        return self.cv_base
-
     def bleu (self, data):
         '''The BLEU score of the hypothesis with respect to the premise, using an n-gram length between 1 and 4'''
         '''data: data parition (train/dev/test)'''
@@ -186,16 +169,15 @@ class NLI_Baseline():
         return cos_sim
 
     def fv(self,data):
-        baseline=NLI_Baseline(data)
         #cv_base=baseline.CV_base(data) #remove cv_base gets 1% inprovement in accuracy
-        bleu_m=baseline.bleu(data)
-        eud_m=baseline.euclidean_distance(data)
-        judm=baseline.jaccard_similarity(data)
-        besim=baseline.bert_cos_sim(data)
-        wom=baseline.word_overlap(data)
-        plm=baseline.sent_polarity(data)
-        sbm=baseline.subj(data)
-        w2vm=baseline.w2v_cos_sim(data)
+        bleu_m=self.bleu(data)
+        eud_m=self.euclidean_distance(data)
+        judm=self.jaccard_similarity(data)
+        besim=self.bert_cos_sim(data)
+        wom=self.word_overlap(data)
+        plm=self.sent_polarity(data)
+        sbm=self.subj(data)
+        w2vm=self.w2v_cos_sim(data)
         fm=np.concatenate((bleu_m,eud_m,judm,besim,wom,plm,sbm,w2vm), axis=1) #remove cv_base gets 1% inprovement in accuracy
         return fm
 
