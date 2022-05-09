@@ -244,12 +244,20 @@ class NLI_Trainer:
         logdir = "logs/scalars/" + datetime.now().strftime("%Y%m%d-%H%M%S") + f'--{self.params["classifier"]}--do-{self.params["dropout"]}--hs-{self.params["hidden_size"]}--em-{self.params["embedding_size"]}'
         tensorboard_callback = keras.callbacks.TensorBoard(log_dir=logdir)
         
-        self.nli_classifier.fit(self.train_batch_generator, epochs=self.params['epochs'], 
-            # steps_per_epoch=self.train_data.shape[0]/self.params['batch_size'], 
-                                    callbacks=[tensorboard_callback],
-                                    batch_size=self.params['batch_size'],
-                                    validation_data=self.dev_batch_generator
+        if self.use_gru:
+            self.nli_classifier.classifier.fit(self.train_batch_generator, epochs=self.params['epochs'],
+                # steps_per_epoch=self.train_data.shape[0]/self.params['batch_size'],
+                                        callbacks=[tensorboard_callback],
+                                        batch_size=self.params['batch_size'],
+                                        validation_data=self.dev_batch_generator
                                )
+        else:
+            self.nli_classifier.fit(self.train_batch_generator, epochs=self.params['epochs'],
+                # steps_per_epoch=self.train_data.shape[0]/self.params['batch_size'],
+                                        callbacks=[tensorboard_callback],
+                                        batch_size=self.params['batch_size'],
+                                        validation_data=self.dev_batch_generator
+                                   )
 #         for i in range(self.params['epochs']):
 #             print(f'Epoch {i+1} / {self.params["epochs"]}')
 #             # Training
