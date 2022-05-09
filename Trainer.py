@@ -43,6 +43,7 @@ class NLI_Trainer:
         self.train_data, dev_data, self.train_labels, dev_labels = train_test_split(
             english_df[['id', 'premise', 'hypothesis', 'lang_abv', 'language']],
             english_df[['label']], test_size=0.3, random_state=self.params['seed'])
+        
         # then reserve two thirds of the dev/test data for testing (20% of the total data)
         # print(dev_data.shape, dev_labels.shape)
         self.dev_data, self.test_data, self.dev_labels, self.test_labels = train_test_split(dev_data,
@@ -57,21 +58,24 @@ class NLI_Trainer:
         
         if self.params['classifier'] == 'gpt2': 
             batch_generator = self.GPT2BatchGenerator
+        
+        elif self.params['classifier'] == "bert":
+            batch_generator = self.BERTBatchGenerator
+        
         else:
             batch_generator = self.BatchGenerator
-
-        if self.use_bert:
-            self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 
         # create the vocab using tokenizer if necessary
         self.vocab = self.create_vocab(self.train_data)
         self.params['classifier_params']['vocab'] = self.vocab
 
         self.nli_classifier = classifier(self.params['classifier_params'])
-        
+
+
         self.train_batch_generator = batch_generator(self, self.train_data, self.train_labels,
-                                                         self.params['batch_size'])
+                                                     self.params['batch_size'])
         self.dev_batch_generator = batch_generator(self, self.dev_data, self.dev_labels, 1)
+        
         self.test_batch_generator = batch_generator(self, self.test_data, self.test_labels, 1)
 
             
@@ -93,6 +97,54 @@ class NLI_Trainer:
             
             
             return input_batch
+
+
+    class BERTBatchGenerator(Sequence):
+        def __init__(self,trainer ,train_data, train_labels,batch_size):
+            self.sentence_pairs = train_data
+            self.labels = train_labels
+            self.batch_size = batch_size
+            
+            self.shuffle = True
+            self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+            self.indexes = np.arange(len(self.sentence_pairs))
+            self.on_epoch_end()
+
+
+        def __len__(self):
+        # Denotes the number of batches per epoch.
+            return len(self.sentence_pairs) // self.batch_size
+
+        def __getitem__(self, idx):
+            # Retrieves the batch of index.
+            indexes = self.indexes[idx * self.batch_size : (idx + 1) * self.batch_size]
+            print(self.sentence_pairs)
+            print(indexes)
+            sentence_pairs = self.sentence_pairs[indexes]
+
+            # With BERT tokenizer's batch_encode_plus batch of both the sentences are
+            # encoded together and separated by [SEP] token.
+            
+            encoded = self.tokenizer.batch_encode_plus(
+                sentence_pairs.tolist(),
+                add_special_tokens=True,
+                max_length=max_length,
+                return_attention_mask=True,
+                return_token_type_ids=True,
+                pad_to_max_length=True,
+                return_tensors="tf",
+            )
+
+            # Convert batch of encoded features to numpy array.
+            input_ids = np.array(encoded["input_ids"], dtype="int32")
+            attention_masks = np.array(encoded["attention_mask"], dtype="int32")
+            token_type_ids = np.array(encoded["token_type_ids"], dtype="int32")
+
+
+            labels = np.array(self.labels[indexes], dtype="int32")
+            
+            return [input_ids, attention_masks, token_type_ids], labels
+
         
     class BatchGenerator(Sequence):
         def __init__(self, trainer, data_df, labels_df, batch_size):
@@ -175,40 +227,8 @@ class NLI_Trainer:
     # vocab is a map from word to index
     # it can be used to convert words to indexes (in Trainer.vectorize_sequence),
     # which can then be used as input to an embeddings layer
-
-    def encode_sentence(self,s):
-       tokens = list(self.tokenizer.tokenize(s))
-       tokens = tokens[:50] #padding
-       tokens.append(SEP)
-       return self.tokenizer.convert_tokens_to_ids(tokens)
-
-    def bert_encode(self,premise, hypothesis, tokenizer):
-        
-        sentence1 = tf.ragged.constant([self.encode_sentence(s) for s in np.array(premise)])
-        sentence2 = tf.ragged.constant([self.encode_sentence(s) for s in np.array(hypothesis)])
-        
-        clss = [tokenizer.convert_tokens_to_ids([CLS])]*(sentence1.shape[0])
-        input_word_ids = tf.concat([clss, sentence1, sentence2], axis=-1)
-
-
-        input_masks = tf.ones_like(input_word_ids).to_tensor()
-
-        type_cls = tf.zeros_like(clss)
-        type_s1 = tf.zeros_like(sentence1)
-        type_s2 = tf.ones_like(sentence2)
-        input_type_ids = tf.concat([type_cls, type_s1, type_s2], axis=-1).to_tensor()
-
-        inputs = {
-          'input_word_ids': input_word_ids.to_tensor(),
-          'input_masks': input_masks,
-          'input_type_ids': input_type_ids}
-      
-        return inputs
     
     def create_vocab(self, df):
-        if self.use_bert:
-            vocab = self.bert_encode(self.df['premise'], self.df['hypothesis'], self.tokenizer)
-            return vocab
 
         sentences = df['premise'].tolist() + df['hypothesis'].tolist()
 
@@ -301,8 +321,8 @@ class NLI_Trainer:
         
         if self.use_bert:        
             
-            self.nli_classifier.classifier.fit(self.vocab, self.english_df['labels'], epochs = 3, 
-                    batch_size = self.params['batch_size'], callbacks=[tensorboard_callback], validation_split=0.2)
+            self.nli_classifier.classifier.fit(self.train_batch_generator, validation_data=self.dev_batch_generator, epochs = 3, 
+                    batch_size = self.params['batch_size'], callbacks=[tensorboard_callback])
 
 
         if self.use_gru:

@@ -24,9 +24,10 @@ class NLI_Classifier_Base(Model):
         self.embedding_size = params["embedding_size"]
         self.glove_file = params["glove_file"]
         self.n_layers = params['n_layers']
-        embedding_matrix = self.load_pretrained_embeddings()
-        self.embedding_layer = Embedding(len(self.vocab), self.embedding_size, 
-                                    embeddings_initializer=tf.keras.initializers.Constant(embedding_matrix))
+        if params['classifier'] != "bert":
+            embedding_matrix = self.load_pretrained_embeddings()
+            self.embedding_layer = Embedding(len(self.vocab), self.embedding_size, 
+                                        embeddings_initializer=tf.keras.initializers.Constant(embedding_matrix))
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=0.0004)
     # override compile function to stop repeating duplicated code 
     def compile(self):
