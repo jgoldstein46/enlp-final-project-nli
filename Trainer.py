@@ -291,16 +291,7 @@ class NLI_Trainer:
             self.run_training_loop_approach_one()
             return
         
-        if self.use_bert:
-            
-            filepath=('logs/scalars/BERT/best_weight_%s.hdf5'%datetime.now().strftime("%Y%m%d-%H%M%S"))
-            
-            checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=1, 
-                                              save_best_only=True, save_weights_only=True, 
-                                              mode='min',save_freq = 'epoch')
-        
-            self.nli_classifier.fit(self.vocab, self.english_df['labels'], epochs = 3, 
-                    batch_size = 16, callbacks=[checkpoint], validation_split=0.2)
+
         
         # must complie the model
         # TODO should the optimizer be passed in as a command line argument?
@@ -310,6 +301,12 @@ class NLI_Trainer:
         logdir = "logs/scalars/" + datetime.now().strftime("%Y%m%d-%H%M%S") + f'--{self.params["classifier"]}--do-{self.params["dropout"]}--hs-{self.params["hidden_size"]}--em-{self.params["embedding_size"]}'
         tensorboard_callback = keras.callbacks.TensorBoard(log_dir=logdir)
         
+        if self.use_bert:        
+            
+            self.nli_classifier.classifier.fit(self.vocab, self.english_df['labels'], epochs = 3, 
+                    batch_size = self.params['batch_size'], callbacks=[tensorboard_callback], validation_split=0.2)
+
+
         if self.use_gru:
             self.nli_classifier.classifier.fit(self.train_batch_generator, epochs=self.params['epochs'],
                 # steps_per_epoch=self.train_data.shape[0]/self.params['batch_size'],

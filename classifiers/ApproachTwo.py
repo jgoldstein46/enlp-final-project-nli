@@ -11,13 +11,14 @@ import tensorflow_hub as hub
 # TODO implement this class (or import it from huggingface if you like)
 class BERT_NLI_Classifier(NLI_Classifier_Base):
     def __init__(self, params):
-        hidden_size = params["hidden_size"]
-        dropout = params["dropout"]
-        self.vocab = params["vocab"]
-        self.embedding_size = params["embedding_size"]
-        self.n_layers = params['n_layers']
+      super().__init__(params)
+      hidden_size = params["hidden_size"]
+      dropout = params["dropout"]
+      self.vocab = params["vocab"]
+      self.embedding_size = params["embedding_size"]
+      self.n_layers = params['n_layers']
 
-        self.classifier = self.build_bert_baseline()
+      self.classifier = self.build_bert_baseline()
 
 
 
