@@ -14,6 +14,7 @@ import re
 from tensorflow import keras
 from datetime import datetime
 from transformers import GPT2Tokenizer
+import tensorflow_addons as tfa
 
 
 SEP = '[SEP]'
@@ -108,7 +109,6 @@ class NLI_Trainer:
             self.shuffle = True
             self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
             self.indexes = np.arange(len(self.sentence_pairs))
-            self.on_epoch_end()
 
 
         def __len__(self):
@@ -132,6 +132,7 @@ class NLI_Trainer:
                 return_token_type_ids=True,
                 pad_to_max_length=True,
                 return_tensors="tf",
+                truncation= True
             )
 
             # Convert batch of encoded features to numpy array.
@@ -318,10 +319,10 @@ class NLI_Trainer:
         logdir = "logs/scalars/" + datetime.now().strftime("%Y%m%d-%H%M%S") + f'--{self.params["classifier"]}--do-{self.params["dropout"]}--hs-{self.params["hidden_size"]}--em-{self.params["embedding_size"]}'
         tensorboard_callback = keras.callbacks.TensorBoard(log_dir=logdir)
         
-        if self.use_bert:        
-            
-            self.nli_classifier.classifier.fit(self.train_batch_generator, validation_data=self.dev_batch_generator, epochs = 3, 
-                    batch_size = self.params['batch_size'], callbacks=[tensorboard_callback])
+        if self.use_bert: 
+
+            self.nli_classifier.classifier.fit(self.train_batch_generator, validation_data=self.dev_batch_generator, epochs = self.params['epochs'], 
+                    batch_size = self.params['batch_size'],callbacks=[tensorboard_callback])
 
 
         if self.use_gru:
