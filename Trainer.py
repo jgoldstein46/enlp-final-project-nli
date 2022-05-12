@@ -57,6 +57,10 @@ class NLI_Trainer:
         
         if self.params['classifier'] == 'gpt2': 
             batch_generator = self.GPT2BatchGenerator
+            self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2", num_labels=3)
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+            self.params['classifier_params']['tokenizer'] = self.tokenizer
+            
         else:
             batch_generator = self.BatchGenerator
 
@@ -80,21 +84,34 @@ class NLI_Trainer:
     class GPT2BatchGenerator(Sequence):
         def __init__(self, trainer, data_df, labels_df, batch_size): 
             self.data_l = [[prem, hyp] for prem, hyp in zip(data_df['premise'].tolist(), data_df['hypothesis'].tolist())]
+            
+            # self.label_a = labels_df['label'].tolist()
             self.label_a = [trainer.one_hot_encode_label(label) for label in labels_df['label'].tolist()]
+            # [trainer.one_hot_encode_label(label) for label in labels_df['label'].tolist()]
+            
             self.batch_size = batch_size
             self.trainer = trainer
-            self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
-            self.tokenizer.pad_token = PAD
+            self.tokenizer = trainer.tokenizer
+            # self.tokenizer.pad_token = self.tokenizer.eos_token
+            # print(self.data_l, self.label_a, self.tokenizer)
             
         def __len__(self):
             return math.ceil(len(self.label_a) / self.batch_size)
         
         def __getitem__(self, idx):
-            input_batch = self.tokenizer(self.data_l[idx*self.batch_size:(idx+1)*self.batch_size], padding=True)
-            input_batch['labels'] = np.array(self.label_a[idx*self.batch_size:(idx+1)*self.batch_size])
-            
-            
-            return input_batch
+            # return 
+            # print(self.data_l[idx*self.batch_size:(idx+1)*self.batch_size])
+            input_batch = self.tokenizer(text=self.data_l[idx*self.batch_size:(idx+1)*self.batch_size], padding=True, return_token_type_ids=True, return_attention_mask=True, verbose=False, return_tensors='tf', truncation=True, is_split_into_words=False)
+            print(type(input_batch))
+            # self.data_l[idx*self.batch_size:(idx+1)*self.batch_size], text_pair=self.data_l[idx*self.batch_size:(idx+1)*self.batch_size]
+            # [["this is some text", 'this is some other text'], 
+                                         # ["this is some different text", 'this is some more special text']]
+            # print(input_batch['input_ids'])
+#             return_token_type_ids=True, return_attention_mask=True, verbose=False
+            # input_batch['labels'] = np.array(self.label_a[idx*self.batch_size:(idx+1)*self.batch_size])
+            batch_y = np.array(self.label_a[idx * self.batch_size:(idx + 1) * self.batch_size])
+            print('batch_y:', batch_y)
+            return (dict(input_batch), batch_y)
         
     class BatchGenerator(Sequence):
         def __init__(self, trainer, data_df, labels_df, batch_size):
@@ -179,10 +196,10 @@ class NLI_Trainer:
     # which can then be used as input to an embeddings layer
 
     def encode_sentence(self,s):
-       tokens = list(self.tokenizer.tokenize(s))
-       tokens = tokens[:50] #padding
-       tokens.append(SEP)
-       return self.tokenizer.convert_tokens_to_ids(tokens)
+        tokens = list(self.tokenizer.tokenize(s))
+        tokens = tokens[:50] #padding
+        tokens.append(SEP)
+        return self.tokenizer.convert_tokens_to_ids(tokens)
 
     def bert_encode(self,premise, hypothesis, tokenizer):
         
