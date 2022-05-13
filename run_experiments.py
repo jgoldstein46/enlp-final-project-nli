@@ -8,6 +8,7 @@ from classifiers.ApproachTwo import BERT_NLI_Classifier
 import tensorflow as tf
 import pandas as pd
 from classifiers.GPT2Wrapper import GPT2Wrapper
+from classifiers.EISMModified import ModifiedEISM
 
 def main():
     import argparse
@@ -42,8 +43,10 @@ def main():
     'lstm': LSTM_NLI_Classifier,
     'eism': EISM,
     'gru': GRU_NLI_Classifier, 
-    'gpt2': GPT2Wrapper
+    'gpt2': GPT2Wrapper,
+    'eism-m': ModifiedEISM
     }
+    
     params['nli_classifier_class'] = classifier2class[params['classifier']]
     params['classifier_params'] = {
         'n_layers': params['n_layers'],

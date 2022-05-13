@@ -334,7 +334,7 @@ class NLI_Trainer:
                                         batch_size=self.params['batch_size'],
                                         validation_data=self.dev_batch_generator
                                )
-        else:
+        elif not self.use_bert:
             self.nli_classifier.fit(self.train_batch_generator, epochs=self.params['epochs'],
                 # steps_per_epoch=self.train_data.shape[0]/self.params['batch_size'],
                                         callbacks=[tensorboard_callback],
