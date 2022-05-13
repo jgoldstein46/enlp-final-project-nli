@@ -55,7 +55,8 @@ def main():
         'batch_size': params['batch_size'],
         'embedding_size': params['embedding_size'],
         'glove_file': params['glove_file'],
-        'train': params['train']
+        'train': params['train'],
+        'classifier' : params['classifier']
     }
     # tf.config.experimental.list_physical_devices('GPU')
     trainer = NLI_Trainer(params)

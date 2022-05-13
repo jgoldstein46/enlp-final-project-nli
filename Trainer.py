@@ -14,6 +14,7 @@ import re
 from tensorflow import keras
 from datetime import datetime
 from transformers import GPT2Tokenizer
+import tensorflow_addons as tfa
 
 
 SEP = '[SEP]'
@@ -43,6 +44,7 @@ class NLI_Trainer:
         self.train_data, dev_data, self.train_labels, dev_labels = train_test_split(
             english_df[['id', 'premise', 'hypothesis', 'lang_abv', 'language']],
             english_df[['label']], test_size=0.3, random_state=self.params['seed'])
+        
         # then reserve two thirds of the dev/test data for testing (20% of the total data)
         # print(dev_data.shape, dev_labels.shape)
         self.dev_data, self.test_data, self.dev_labels, self.test_labels = train_test_split(dev_data,
@@ -61,25 +63,26 @@ class NLI_Trainer:
             self.tokenizer.pad_token = self.tokenizer.eos_token
             self.params['classifier_params']['tokenizer'] = self.tokenizer
             
+        
+        elif self.params['classifier'] == "bert":
+            batch_generator = self.BERTBatchGenerator
+        
         else:
             batch_generator = self.BatchGenerator
-
-        if self.use_bert:
-            self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 
         # create the vocab using tokenizer if necessary
         self.vocab = self.create_vocab(self.train_data)
         self.params['classifier_params']['vocab'] = self.vocab
 
         self.nli_classifier = classifier(self.params['classifier_params'])
-        
+
+
         self.train_batch_generator = batch_generator(self, self.train_data, self.train_labels,
-                                                         self.params['batch_size'])
+                                                     self.params['batch_size'])
         self.dev_batch_generator = batch_generator(self, self.dev_data, self.dev_labels, 1)
+        
         self.test_batch_generator = batch_generator(self, self.test_data, self.test_labels, 1)
 
-        if self.use_bert:
-            self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
             
     class GPT2BatchGenerator(Sequence):
         def __init__(self, trainer, data_df, labels_df, batch_size): 
@@ -225,9 +228,6 @@ class NLI_Trainer:
         return inputs
     
     def create_vocab(self, df):
-        if self.use_bert:
-            vocab = self.bert_encode(self.df['premise'], self.df['hypothesis'], self.tokenizer)
-            return vocab
 
         sentences = df['premise'].tolist() + df['hypothesis'].tolist()
 
@@ -308,16 +308,7 @@ class NLI_Trainer:
             self.run_training_loop_approach_one()
             return
         
-        if self.use_bert:
-            
-            filepath=('logs/scalars/BERT/best_weight_%s.hdf5'%datetime.now().strftime("%Y%m%d-%H%M%S"))
-            
-            checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=1, 
-                                              save_best_only=True, save_weights_only=True, 
-                                              mode='min',save_freq = 'epoch')
-        
-            self.nli_classifier.fit(self.vocab, self.english_df['labels'], epochs = 3, 
-                    batch_size = 16, callbacks=[checkpoint], validation_split=0.2)
+
         
         # must complie the model
         # TODO should the optimizer be passed in as a command line argument?
@@ -327,6 +318,12 @@ class NLI_Trainer:
         logdir = "logs/scalars/" + datetime.now().strftime("%Y%m%d-%H%M%S") + f'--{self.params["classifier"]}--do-{self.params["dropout"]}--hs-{self.params["hidden_size"]}--em-{self.params["embedding_size"]}'
         tensorboard_callback = keras.callbacks.TensorBoard(log_dir=logdir)
         
+        if self.use_bert: 
+
+            self.nli_classifier.classifier.fit(self.train_batch_generator, validation_data=self.dev_batch_generator, epochs = self.params['epochs'], 
+                    batch_size = self.params['batch_size'],callbacks=[tensorboard_callback])
+
+
         if self.use_gru:
             self.nli_classifier.classifier.fit(self.train_batch_generator, epochs=self.params['epochs'],
                 # steps_per_epoch=self.train_data.shape[0]/self.params['batch_size'],
