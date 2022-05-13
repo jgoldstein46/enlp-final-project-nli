@@ -6,7 +6,8 @@ from classifiers.Classifier import NLI_Classifier_Base
 class GPT2Wrapper(NLI_Classifier_Base):
     def __init__(self, params):
         super().__init__(params)
-        self.GPT = TFGPT2ForSequenceClassification.from_pretrained("gpt2", num_labels=3)
+        self.GPT = TFGPT2ForSequenceClassification.from_pretrained("gpt2", num_labels=3, pad_token_id = 50256)
+        # self.GPT.pad_token = params['tokenizer'].pad_token 
         # self.tokenizer = GPT2Tokenizer.from_pretrained("microsoft/DialogRPT-updown")
         self.compile()
     def call(self, inputs):
@@ -15,4 +16,7 @@ class GPT2Wrapper(NLI_Classifier_Base):
 # the vocabulary for this to get back to tokens. Or redisgn the code
 # for trainer. IDK 
         # inputs = tokenizer()
-        return self.GPT(inputs)
+        output = self.GPT(**inputs)
+        print(output.logits.shape)
+        
+        return output.logits

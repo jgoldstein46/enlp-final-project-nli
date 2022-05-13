@@ -14,6 +14,7 @@ import re
 from tensorflow import keras
 from datetime import datetime
 from transformers import GPT2Tokenizer
+import tensorflow_addons as tfa
 
 
 SEP = '[SEP]'
@@ -43,6 +44,7 @@ class NLI_Trainer:
         self.train_data, dev_data, self.train_labels, dev_labels = train_test_split(
             english_df[['id', 'premise', 'hypothesis', 'lang_abv', 'language']],
             english_df[['label']], test_size=0.3, random_state=self.params['seed'])
+        
         # then reserve two thirds of the dev/test data for testing (20% of the total data)
         # print(dev_data.shape, dev_labels.shape)
         self.dev_data, self.test_data, self.dev_labels, self.test_labels = train_test_split(dev_data,
@@ -57,44 +59,62 @@ class NLI_Trainer:
         
         if self.params['classifier'] == 'gpt2': 
             batch_generator = self.GPT2BatchGenerator
+            self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2", num_labels=3)
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+            self.params['classifier_params']['tokenizer'] = self.tokenizer
+            
+        
+        elif self.params['classifier'] == "bert":
+            batch_generator = self.BERTBatchGenerator
+        
         else:
             batch_generator = self.BatchGenerator
-
-        if self.use_bert:
-            self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 
         # create the vocab using tokenizer if necessary
         self.vocab = self.create_vocab(self.train_data)
         self.params['classifier_params']['vocab'] = self.vocab
 
         self.nli_classifier = classifier(self.params['classifier_params'])
-        
+
+
         self.train_batch_generator = batch_generator(self, self.train_data, self.train_labels,
-                                                         self.params['batch_size'])
+                                                     self.params['batch_size'])
         self.dev_batch_generator = batch_generator(self, self.dev_data, self.dev_labels, 1)
+        
         self.test_batch_generator = batch_generator(self, self.test_data, self.test_labels, 1)
 
-        if self.use_bert:
-            self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
             
     class GPT2BatchGenerator(Sequence):
         def __init__(self, trainer, data_df, labels_df, batch_size): 
             self.data_l = [[prem, hyp] for prem, hyp in zip(data_df['premise'].tolist(), data_df['hypothesis'].tolist())]
+            
+            # self.label_a = labels_df['label'].tolist()
             self.label_a = [trainer.one_hot_encode_label(label) for label in labels_df['label'].tolist()]
+            # [trainer.one_hot_encode_label(label) for label in labels_df['label'].tolist()]
+            
             self.batch_size = batch_size
             self.trainer = trainer
-            self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
-            self.tokenizer.pad_token = PAD
+            self.tokenizer = trainer.tokenizer
+            # self.tokenizer.pad_token = self.tokenizer.eos_token
+            # print(self.data_l, self.label_a, self.tokenizer)
             
         def __len__(self):
             return math.ceil(len(self.label_a) / self.batch_size)
         
         def __getitem__(self, idx):
-            input_batch = self.tokenizer(self.data_l[idx*self.batch_size:(idx+1)*self.batch_size], padding=True)
-            input_batch['labels'] = np.array(self.label_a[idx*self.batch_size:(idx+1)*self.batch_size])
-            
-            
-            return input_batch
+            # return 
+            # print(self.data_l[idx*self.batch_size:(idx+1)*self.batch_size])
+            input_batch = self.tokenizer(text=self.data_l[idx*self.batch_size:(idx+1)*self.batch_size], padding=True, return_token_type_ids=True, return_attention_mask=True, verbose=False, return_tensors='tf', truncation=True, is_split_into_words=False)
+            print(type(input_batch))
+            # self.data_l[idx*self.batch_size:(idx+1)*self.batch_size], text_pair=self.data_l[idx*self.batch_size:(idx+1)*self.batch_size]
+            # [["this is some text", 'this is some other text'], 
+                                         # ["this is some different text", 'this is some more special text']]
+            # print(input_batch['input_ids'])
+#             return_token_type_ids=True, return_attention_mask=True, verbose=False
+            # input_batch['labels'] = np.array(self.label_a[idx*self.batch_size:(idx+1)*self.batch_size])
+            batch_y = np.array(self.label_a[idx * self.batch_size:(idx + 1) * self.batch_size])
+            print('batch_y:', batch_y)
+            return (dict(input_batch), batch_y)
         
     class BatchGenerator(Sequence):
         def __init__(self, trainer, data_df, labels_df, batch_size):
@@ -179,10 +199,10 @@ class NLI_Trainer:
     # which can then be used as input to an embeddings layer
 
     def encode_sentence(self,s):
-       tokens = list(self.tokenizer.tokenize(s))
-       tokens = tokens[:50] #padding
-       tokens.append(SEP)
-       return self.tokenizer.convert_tokens_to_ids(tokens)
+        tokens = list(self.tokenizer.tokenize(s))
+        tokens = tokens[:50] #padding
+        tokens.append(SEP)
+        return self.tokenizer.convert_tokens_to_ids(tokens)
 
     def bert_encode(self,premise, hypothesis, tokenizer):
         
@@ -208,9 +228,6 @@ class NLI_Trainer:
         return inputs
     
     def create_vocab(self, df):
-        if self.use_bert:
-            vocab = self.bert_encode(self.df['premise'], self.df['hypothesis'], self.tokenizer)
-            return vocab
 
         sentences = df['premise'].tolist() + df['hypothesis'].tolist()
 
@@ -291,16 +308,7 @@ class NLI_Trainer:
             self.run_training_loop_approach_one()
             return
         
-        if self.use_bert:
-            
-            filepath=('logs/scalars/BERT/best_weight_%s.hdf5'%datetime.now().strftime("%Y%m%d-%H%M%S"))
-            
-            checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=1, 
-                                              save_best_only=True, save_weights_only=True, 
-                                              mode='min',save_freq = 'epoch')
-        
-            self.nli_classifier.fit(self.vocab, self.english_df['labels'], epochs = 3, 
-                    batch_size = 16, callbacks=[checkpoint], validation_split=0.2)
+
         
         # must complie the model
         # TODO should the optimizer be passed in as a command line argument?
@@ -310,6 +318,12 @@ class NLI_Trainer:
         logdir = "logs/scalars/" + datetime.now().strftime("%Y%m%d-%H%M%S") + f'--{self.params["classifier"]}--do-{self.params["dropout"]}--hs-{self.params["hidden_size"]}--em-{self.params["embedding_size"]}'
         tensorboard_callback = keras.callbacks.TensorBoard(log_dir=logdir)
         
+        if self.use_bert: 
+
+            self.nli_classifier.classifier.fit(self.train_batch_generator, validation_data=self.dev_batch_generator, epochs = self.params['epochs'], 
+                    batch_size = self.params['batch_size'],callbacks=[tensorboard_callback])
+
+
         if self.use_gru:
             self.nli_classifier.classifier.fit(self.train_batch_generator, epochs=self.params['epochs'],
                 # steps_per_epoch=self.train_data.shape[0]/self.params['batch_size'],
@@ -317,7 +331,7 @@ class NLI_Trainer:
                                         batch_size=self.params['batch_size'],
                                         validation_data=self.dev_batch_generator
                                )
-        else:
+        elif not self.use_bert:
             self.nli_classifier.fit(self.train_batch_generator, epochs=self.params['epochs'],
                 # steps_per_epoch=self.train_data.shape[0]/self.params['batch_size'],
                                         callbacks=[tensorboard_callback],
