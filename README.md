@@ -19,5 +19,9 @@ Options:
 | -e | --epochs | Number of epochs, default:20 |
 | -s | --seed | Train, dev, test split random seed number, default:100 |
 | -t | --train | file to be used for training and dev and testing after split, default: "train.csv" |
-| -c | --classifier | The name of the classifier you wish to use. baseline --> approach one, bert --> approach two, lstm --> approach three, gru --> approach four, default: "baseline" |
+| -c | --classifier | The name of the classifier you wish to use. 
+    baseline: Baseline feature set, bert: BERT with LSTM model, lstm: Glove with LSTM model, gru: GloVe with GRU, eism: EISM model, 
+    eism-m: Our Modified EISM model. default: "baseline" |
 | -g | --glove-file | path to glove embeddings file, default: "../../data/glove.840B.300d.txt" |
+
+run_experiments.py initializes a Trainer instance (Trainer.py) and runs its training loop using an approach to NLI depending on the argument pased to --classifier. Each approach we implemented has its own class and its own file. See the 'classifiers' folder for each approach implementation. 
