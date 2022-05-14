@@ -29,7 +29,8 @@ def main():
     parser.add_argument('-s', '--seed', default=100, type=int, help='Train, dev, test split random seed number')
     parser.add_argument('-t', '--train', default='train.csv', type=str, help='file to be used for training and dev and testing after split')
     parser.add_argument('-c', '--classifier', default='baseline', type=str, help="""The name of the classifier you wish to use. 
-    baseline --> approach one, bert --> approach two, lstm --> approach three, gru --> approach four""")
+    baseline: Baseline feature set, bert: BERT with LSTM model, lstm: Glove with LSTM model, gru: GloVe with GRU, eism: EISM model, 
+    eism-m: Our Modified EISM model.""")
     parser.add_argument('-g', '--glove-file', help='path to glove embeddings file', type=str, default='../../data/glove.840B.300d.txt')
 
 
