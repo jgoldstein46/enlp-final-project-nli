@@ -19,6 +19,7 @@ class NLI_Classifier_Base(Model):
         # self.embeddings_matrix = self.load_pretrained_embeddings()
         # self.model = None
         self.hidden_size = params["hidden_size"]
+        # print(self.hidden_size)
         self.dropout = params["dropout"]
         self.vocab = params["vocab"]
         self.embedding_size = params["embedding_size"]

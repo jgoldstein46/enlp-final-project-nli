@@ -4,6 +4,7 @@ import numpy as np
 from keras.models import Sequential
 from keras import layers
 from tensorflow.keras.layers import BatchNormalization
+import keras
 
 class ModifiedEISM(NLI_Classifier_Base):
     def __init__(self, params):
@@ -11,7 +12,7 @@ class ModifiedEISM(NLI_Classifier_Base):
         self.encoder = Sequential()
         self.encoder.add(Bidirectional(LSTM(self.hidden_size, return_sequences=True, dropout=self.dropout)))
         self.encoder.add(BatchNormalization())
-        self.self_att = TransformerBlock()
+        self.self_att = TransformerBlock(self.hidden_size*2, 16, self.hidden_size*2, self.dropout)
         self.composition = Bidirectional(LSTM(self.hidden_size, return_sequences=False, dropout=self.dropout))
         self.MLP = Sequential()
 
@@ -26,14 +27,15 @@ class ModifiedEISM(NLI_Classifier_Base):
     def call(self, inputs, **kwds):
         prem_emb = self.embedding_layer(inputs['premise'])
         hyp_emb = self.embedding_layer(inputs['hypothesis'])
-
+        # print(hyp_emb.shape)
         prem_enc = self.encoder(prem_emb)
         hyp_enc = self.encoder(hyp_emb)
-
+        # print(self.hidden_size)
+        # print(prem_enc.shape)
         combined = concatenate([prem_enc, hyp_enc], axis=1)
-        print(combined.shape)
+        # print(combined.shape)
         att_out = self.self_att(combined)
-        print(att_out.shape)
+        # print(att_out.shape)
         # composition layer 
         cls = self.composition(att_out)
 
