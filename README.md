@@ -8,6 +8,8 @@ Run models
 
 Options:
 
+|abbrev| command| description|
+| ---- |----| -----|
 | -b | --batch_size | batch size before weights update,default:32 |
 | -l | --n_layers | number of layers, default:2 |
 | -do | --dropout | dropout rate, default:0.5 |
